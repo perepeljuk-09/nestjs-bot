@@ -6,18 +6,27 @@ export enum actionsType {
   done = "Изменить статус задачи",
   edit = "Редактировать ✅",
   delete = "Удалить ❌",
-  next = "Поиск нового собеседника",
-  stop = "Завершить диалог",
+  next = "💣 Поиск нового собеседника",
+  stop = "❌Завершить диалог",
+  otec = "Позвать отца",
 }
 
+// export function actionButtons() {
+//   return Markup.inlineKeyboard(
+//     [
+//       Markup.button.callback(actionsType.otec, "otecc"),
+//       Markup.button.callback(actionsType.next, "next"),
+//       Markup.button.callback(actionsType.stop, "stop"),
+//     ],
+//     {
+//       columns: 2,
+//     }
+//   );
+// }
 export function actionButtons() {
   return Markup.keyboard(
     [
-      // Markup.button.callback(actionsType.create, "create"),
-      // Markup.button.callback(actionsType.list, "list"),
-      // Markup.button.callback(actionsType.done, "done"),
-      // Markup.button.callback(actionsType.edit, "edit"),
-      // Markup.button.callback(actionsType.delete, "delete"),
+      Markup.button.callback(actionsType.otec, "otecc"),
       Markup.button.callback(actionsType.next, "next"),
       Markup.button.callback(actionsType.stop, "stop"),
     ],
@@ -25,4 +34,10 @@ export function actionButtons() {
       columns: 2,
     }
   ).resize();
+}
+
+export function stopButtons() {
+  return Markup.keyboard([Markup.button.callback(actionsType.next, "next")], {
+    columns: 2,
+  }).resize();
 }
