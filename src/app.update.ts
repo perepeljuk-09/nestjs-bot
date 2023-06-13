@@ -1,28 +1,25 @@
 import { AppService } from "./app.service";
-import { Context } from "./interface/context.interface";
-import { Injectable } from "@nestjs/common";
 import {
   Hears,
   InjectBot,
   Start,
   Update,
   On,
-  Command,
-  Action,
   Message,
   Ctx,
 } from "nestjs-telegraf";
 import { Telegraf } from "telegraf";
-import { actionButtons, actionsType, stopButtons } from "./utils/app.buttons";
-import { showList } from "./utils/app.utils";
+import {
+  actionButtons,
+  actionsType,
+  chatButtons,
+  inlineSubsButtons,
+  searchNextButtons,
+  stopButtons,
+} from "./utils/app.buttons";
 import { QueueService } from "./queue/queue.service";
 import { ChatService } from "./chat/chat.service";
-
-const chat = {
-  id: 1,
-  first_user_id: null,
-  second_user_id: null,
-};
+import { Context } from "telegraf";
 
 const queue = [];
 
@@ -35,23 +32,41 @@ export class AppUpdate {
     private chatService: ChatService
   ) {}
 
-  interlocutor: number | null = null;
-
   @Start()
   async startCommand(ctx: Context) {
-    await ctx.reply("Привет");
-    await ctx.reply("Что ты хочешь выбрать ?", actionButtons());
+    const userId = ctx.chat.id;
+
+    // check in subscription
+    const chatMemberStatus = (
+      await ctx.telegram.getChatMember(-1001953527935, userId)
+    ).status;
+
+    if (chatMemberStatus === "left") {
+      await ctx.reply("Привет");
+      await ctx.reply("Подпишись на каналы", inlineSubsButtons());
+      return;
+    } else {
+      await ctx.reply("Можешь пользоваться", actionButtons());
+    }
   }
 
   @Hears(actionsType.next)
   async nextChat(ctx: Context) {
-    console.log("bot >>>", ctx.session.type);
-
-    // ctx.session.type = "chat";
+    // check in subscriptions
     const chat_user_id = ctx.chat.id;
 
-    await ctx.reply("Поиск собеседника");
+    const chatMemberStatus = (
+      await ctx.telegram.getChatMember(-1001953527935, chat_user_id)
+    ).status;
 
+    if (chatMemberStatus === "left") {
+      await ctx.reply("Подпишись на каналы", inlineSubsButtons());
+      return;
+    } else {
+      await ctx.reply("Поиск собеседника", searchNextButtons());
+    }
+
+    // add to queue
     const first_chat_user_id = await this.queueService.addToQueue(chat_user_id);
 
     if (!first_chat_user_id) {
@@ -65,23 +80,34 @@ export class AppUpdate {
 
     await ctx.telegram.sendMessage(
       chat.first_chat_user_id,
-      "Собеседник найден"
+      "Собеседник найден",
+      chatButtons()
     );
     await ctx.telegram.sendMessage(
       chat.second_chat_user_id,
-      "Собеседник найден"
+      "Собеседник найден",
+      chatButtons()
     );
     return;
   }
 
+  @Hears(actionsType.searchStop)
+  async searchStop(ctx: Context) {
+    const userId = ctx.chat.id;
+
+    this.queueService.deleteFromQueue(userId);
+    await ctx.reply("Поиск остановлен 👎", actionButtons());
+  }
+
   @Hears(actionsType.stop)
   async stopChat(ctx: Context) {
-    const chat_user_id = ctx.chat.id;
-    await ctx.reply("Вы завершили диалог");
+    const userId = ctx.chat.id;
 
-    const chat = await this.chatService.deleteChat(chat_user_id);
+    await ctx.reply("Вы завершили диалог", actionButtons());
 
-    if (chat_user_id === chat.first_chat_user_id) {
+    const chat = await this.chatService.deleteChat(userId);
+
+    if (userId === chat.first_chat_user_id) {
       await ctx.telegram.sendMessage(
         chat.second_chat_user_id,
         "Ваш собеседник завершил диалог",
@@ -96,27 +122,41 @@ export class AppUpdate {
     }
   }
 
-  @Action("otecc")
-  async otec(@Ctx() ctx: Context) {
-    ctx.reply(" по отцу");
-    console.log("help me");
-  }
-
   @On("text")
   async chat(@Message("text") message: string, @Ctx() ctx: Context) {
-    if (!ctx.session.type) return;
-    console.log("ctx.session.type >>>>", ctx.session.type);
+    const userId = ctx.chat.id;
 
-    if (ctx.session.type === "chat") {
-      const chat_user_id = ctx.chat.id;
-      const chat = await this.chatService.getChatByUserId(chat_user_id);
+    // check in chats
+    const chat = await this.chatService.getChatByUserId(userId);
 
-      // console.log("chat >>>", chat);
-      if (chat_user_id === chat.first_chat_user_id) {
+    if (chat) {
+      if (userId === chat.first_chat_user_id) {
         await ctx.telegram.sendMessage(chat.second_chat_user_id, message);
+        return;
       } else {
         await ctx.telegram.sendMessage(chat.first_chat_user_id, message);
+        return;
       }
+    }
+
+    // check in queue
+    const inQueue = this.queueService.checkInQueue(userId);
+
+    if (inQueue) {
+      await ctx.reply("Идёт поиск собеседника", searchNextButtons());
+      return;
+    }
+
+    // check in subscriptions
+    const chatMemberStatus = (
+      await ctx.telegram.getChatMember(-1001953527935, userId)
+    ).status;
+
+    if (chatMemberStatus === "left") {
+      await ctx.reply("Подпишись на каналы", inlineSubsButtons());
+      return;
+    } else {
+      await ctx.reply("Я тебя не понимаю", actionButtons());
     }
   }
 }

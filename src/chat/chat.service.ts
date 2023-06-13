@@ -28,6 +28,7 @@ export class ChatService {
         chat.first_chat_user_id === chat_user_id ||
         chat.second_chat_user_id === chat_user_id
     );
+
     return chat;
   }
 

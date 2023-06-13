@@ -19,5 +19,13 @@ export class QueueService {
     }
   }
 
-  async deleteFromQueue() {}
+  checkInQueue(chat_user_id: number) {
+    return this.queue[0] === chat_user_id ? true : false;
+  }
+
+  deleteFromQueue(chat_user_id: number) {
+    this.queue = this.queue.filter((item) => item !== chat_user_id);
+
+    return;
+  }
 }
