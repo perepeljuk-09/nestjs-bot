@@ -19,6 +19,16 @@ export class QueueService {
     }
   }
 
+  getFromQueue() {
+    const first_chat_user_id = this.queue.pop();
+
+    return first_chat_user_id;
+  }
+
+  getQueue() {
+    return this.queue;
+  }
+
   checkInQueue(chat_user_id: number) {
     return this.queue[0] === chat_user_id ? true : false;
   }
